@@ -2,6 +2,19 @@
 
 A full-stack web application for NGOs to manage employee expense reimbursements across multiple CSR projects — built with React, Tailwind CSS, Node.js (Express), PostgreSQL, and Prisma.
 
+## Deploy a live instance (free)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yashkuls99-creator/TRAX/tree/claude/ngo-expense-reimbursement-app-bpxx7r)
+
+This provisions a free Postgres database, the backend API, and the frontend static site from `render.yaml`. After the first deploy:
+
+1. Open the **ngo-expense-backend** service → Environment → set `CORS_ORIGIN` to your frontend's URL (shown on the **ngo-expense-frontend** service page, e.g. `https://ngo-expense-frontend.onrender.com`) → Save (triggers redeploy).
+2. Open the **ngo-expense-frontend** service → Environment → set `VITE_API_URL` to your backend's URL + `/api` (e.g. `https://ngo-expense-backend.onrender.com/api`) → Save (triggers redeploy).
+3. Open the **ngo-expense-backend** service → Shell → run `npm run prisma:seed` to create the demo admin/employee accounts (`admin@ngo.org` / `Admin@123`, `employee@ngo.org` / `Employee@123`).
+4. If the backend's Shell doesn't show tables yet, also run `npm run prisma:deploy` there (the `preDeployCommand` in `render.yaml` normally applies migrations automatically, but this is a manual fallback in case your Render plan doesn't support it).
+
+Free-tier services spin down after inactivity (first request after idle takes ~30s to wake up) and the backend's local disk (bill uploads) is ephemeral — fine for a demo/review instance, not for production. See [Production](#production) below for real deployments.
+
 ## Features
 
 **Employee**
