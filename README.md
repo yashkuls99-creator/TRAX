@@ -10,7 +10,8 @@ This provisions a free Postgres database, the backend API, and the frontend stat
 
 1. Open the **ngo-expense-backend** service → Environment → set `CORS_ORIGIN` to your frontend's URL (shown on the **ngo-expense-frontend** service page, e.g. `https://ngo-expense-frontend.onrender.com`) → Save (triggers redeploy).
 2. Open the **ngo-expense-frontend** service → Environment → set `VITE_API_URL` to your backend's URL + `/api` (e.g. `https://ngo-expense-backend.onrender.com/api`) → Save (triggers redeploy).
-3. Open the **ngo-expense-backend** service → Shell → run `npm run prisma:seed` to create the demo admin/employee accounts (`admin@ngo.org` / `Admin@123`, `employee@ngo.org` / `Employee@123`). Database migrations run automatically as part of the build step, so tables will already exist by this point.
+
+Database migrations and demo-user seeding both run automatically as part of the backend's build step (the seed script is idempotent, so it's safe on every deploy) — free-tier services don't get Shell/one-off job access, so there's no manual step needed. Demo accounts: `admin@ngo.org` / `Admin@123`, `employee@ngo.org` / `Employee@123`.
 
 Free-tier services spin down after inactivity (first request after idle takes ~30s to wake up) and the backend's local disk (bill uploads) is ephemeral — fine for a demo/review instance, not for production. See [Production](#production) below for real deployments.
 
