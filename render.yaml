@@ -22,11 +22,17 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
-      - key: UPLOAD_DIR
-        value: /opt/render/project/src/uploads
       - key: MAX_UPLOAD_SIZE_MB
         value: "10"
       - key: CORS_ORIGIN
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
         sync: false
 
   - type: web

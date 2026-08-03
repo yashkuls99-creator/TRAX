@@ -1,13 +1,12 @@
 import { Router } from "express";
-import fs from "fs";
-import path from "path";
 import { z } from "zod";
 import { ClaimStatus, PaymentMode, Role } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/ApiError";
 import { authenticate, authorize } from "../middleware/auth";
-import { uploadBillFiles, claimsDir } from "../middleware/upload";
+import { uploadBillFiles, generateObjectKey } from "../middleware/upload";
+import { uploadObject, getObjectStream, deleteObject } from "../services/storage.service";
 import { generateClaimNumber } from "../utils/claimNumber";
 import { logAudit } from "../utils/audit";
 
@@ -28,15 +27,20 @@ const createClaimSchema = z.object({
 
 async function attachFiles(claimId: string, files: Express.Multer.File[], performedById: string) {
   if (!files.length) return;
-  await prisma.claimAttachment.createMany({
-    data: files.map((f) => ({
-      claimId,
-      fileName: f.originalname,
-      filePath: f.filename,
-      mimeType: f.mimetype,
-      fileSize: f.size,
-    })),
-  });
+  const uploaded = await Promise.all(
+    files.map(async (f) => {
+      const key = generateObjectKey(f.originalname);
+      await uploadObject(key, f.buffer, f.mimetype);
+      return {
+        claimId,
+        fileName: f.originalname,
+        filePath: key,
+        mimeType: f.mimetype,
+        fileSize: f.size,
+      };
+    })
+  );
+  await prisma.claimAttachment.createMany({ data: uploaded });
   await logAudit({
     claimId,
     action: "ATTACHMENT_ADDED",
@@ -219,26 +223,31 @@ claimRouter.patch(
       throw ApiError.badRequest("A claim must have at least one bill attachment");
     }
 
+    const uploadedFiles = await Promise.all(
+      newFiles.map(async (f) => {
+        const key = generateObjectKey(f.originalname);
+        await uploadObject(key, f.buffer, f.mimetype);
+        return {
+          claimId: claim.id,
+          fileName: f.originalname,
+          filePath: key,
+          mimeType: f.mimetype,
+          fileSize: f.size,
+        };
+      })
+    );
+
     const fromStatus = claim.status;
     const updated = await prisma.$transaction(async (tx) => {
       if (parsed.removeAttachmentIds.length) {
         const toRemove = claim.attachments.filter((a) => parsed.removeAttachmentIds.includes(a.id));
         await tx.claimAttachment.deleteMany({ where: { id: { in: parsed.removeAttachmentIds } } });
         for (const att of toRemove) {
-          const filePath = path.join(claimsDir, att.filePath);
-          fs.promises.unlink(filePath).catch(() => undefined);
+          deleteObject(att.filePath).catch(() => undefined);
         }
       }
-      if (newFiles.length) {
-        await tx.claimAttachment.createMany({
-          data: newFiles.map((f) => ({
-            claimId: claim.id,
-            fileName: f.originalname,
-            filePath: f.filename,
-            mimeType: f.mimetype,
-            fileSize: f.size,
-          })),
-        });
+      if (uploadedFiles.length) {
+        await tx.claimAttachment.createMany({ data: uploadedFiles });
       }
       return tx.claim.update({
         where: { id: claim.id },
@@ -279,11 +288,15 @@ claimRouter.get(
     if (req.user!.role === Role.EMPLOYEE && attachment.claim.employeeId !== req.user!.sub) {
       throw ApiError.forbidden("You cannot view this attachment");
     }
-    const filePath = path.join(claimsDir, attachment.filePath);
-    if (!fs.existsSync(filePath)) throw ApiError.notFound("File not found on server");
+    let stream;
+    try {
+      stream = await getObjectStream(attachment.filePath);
+    } catch {
+      throw ApiError.notFound("File not found in storage");
+    }
     res.setHeader("Content-Type", attachment.mimeType);
     res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
-    res.sendFile(filePath);
+    stream.pipe(res);
   })
 );
 

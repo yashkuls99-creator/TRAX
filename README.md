@@ -10,10 +10,11 @@ This provisions a free Postgres database, the backend API, and the frontend stat
 
 1. Open the **ngo-expense-backend** service → Environment → set `CORS_ORIGIN` to your frontend's URL (shown on the **ngo-expense-frontend** service page, e.g. `https://ngo-expense-frontend.onrender.com`) → Save (triggers redeploy).
 2. Open the **ngo-expense-frontend** service → Environment → set `VITE_API_URL` to your backend's URL + `/api` (e.g. `https://ngo-expense-backend.onrender.com/api`) → Save (triggers redeploy).
+3. Open the **ngo-expense-backend** service → Environment → set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` from a [Cloudflare R2](https://developers.cloudflare.com/r2/) bucket + API token → Save (triggers redeploy). The backend will not start without these.
 
 Database migrations and demo-user seeding both run automatically as part of the backend's build step (the seed script is idempotent, so it's safe on every deploy) — free-tier services don't get Shell/one-off job access, so there's no manual step needed. Demo accounts: `admin@ngo.org` / `Admin@123`, `employee@ngo.org` / `Employee@123`.
 
-Free-tier services spin down after inactivity (first request after idle takes ~30s to wake up) and the backend's local disk (bill uploads) is ephemeral — fine for a demo/review instance, not for production. See [Production](#production) below for real deployments.
+Free-tier services spin down after inactivity (first request after idle takes ~30s to wake up). Bill uploads are stored in Cloudflare R2 object storage, not on the backend's local disk, so they survive redeploys and restarts.
 
 ## Features
 
@@ -85,7 +86,7 @@ npm run dev   # http://localhost:5173
 
 ## Production
 
-`docker-compose.yml` builds and runs the Postgres database, backend API, and frontend together. Set strong values for `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` and configure `CORS_ORIGIN` before deploying. Uploaded bill files are stored on a persistent volume (`backend_uploads`); for multi-instance deployments, back this with shared/object storage.
+`docker-compose.yml` builds and runs the Postgres database, backend API, and frontend together. Set strong values for `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` and configure `CORS_ORIGIN` before deploying. Bill uploads are stored in Cloudflare R2 (S3-compatible object storage) — set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` in your environment before starting.
 
 ## Claim Lifecycle
 
