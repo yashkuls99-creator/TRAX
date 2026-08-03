@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  FINANCE_ADMIN
+}
+
+enum ClaimStatus {
+  SUBMITTED
+  ON_HOLD
+  APPROVED
+  REJECTED
+  PENDING_PAYMENT
+  PARTIALLY_PAID
+  PAID
+}
+
+enum PaymentMode {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum AuditAction {
+  CLAIM_SUBMITTED
+  CLAIM_EDITED
+  CLAIM_APPROVED
+  CLAIM_REJECTED
+  CLAIM_ON_HOLD
+  CLAIM_MARKED_PENDING_PAYMENT
+  PAYMENT_RECORDED
+  CLAIM_MARKED_PAID
+  ATTACHMENT_ADDED
+  ATTACHMENT_REMOVED
+  USER_CREATED
+  USER_UPDATED
+  USER_DEACTIVATED
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  CATEGORY_CREATED
+  CATEGORY_UPDATED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(EMPLOYEE)
+  phone         String?
+  city          String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  claims           Claim[]           @relation("EmployeeClaims")
+  reviewedClaims   Claim[]           @relation("ReviewedByAdmin")
+  payments         Payment[]         @relation("RecordedByAdmin")
+  auditLogs        AuditLog[]        @relation("PerformedByUser")
+  refreshTokens    RefreshToken[]
+  projectAccess    ProjectAssignment[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  city        String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  claims      Claim[]
+  assignments ProjectAssignment[]
+}
+
+model ProjectAssignment {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, projectId])
+}
+
+model ExpenseCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  claims      Claim[]
+}
+
+model Claim {
+  id             String      @id @default(uuid())
+  claimNumber    String      @unique
+  employeeId     String
+  employee       User        @relation("EmployeeClaims", fields: [employeeId], references: [id])
+  projectId      String
+  project        Project     @relation(fields: [projectId], references: [id])
+  categoryId     String
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  expenseDate    DateTime
+  amount         Decimal     @db.Decimal(12, 2)
+  description    String
+  paymentMode    PaymentMode
+
+  status         ClaimStatus @default(SUBMITTED)
+  approvedAmount Decimal?    @db.Decimal(12, 2)
+  remarks        String?
+
+  reviewedById   String?
+  reviewedBy     User?       @relation("ReviewedByAdmin", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  attachments    ClaimAttachment[]
+  payments       Payment[]
+  auditLogs      AuditLog[]
+
+  @@index([employeeId])
+  @@index([projectId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([expenseDate])
+}
+
+model ClaimAttachment {
+  id         String   @id @default(uuid())
+  claimId    String
+  claim      Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  fileName   String
+  filePath   String
+  mimeType   String
+  fileSize   Int
+  uploadedAt DateTime @default(now())
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  claimId        String
+  claim          Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  paymentDate    DateTime
+  amountPaid     Decimal  @db.Decimal(12, 2)
+  utrReference   String?
+  remarks        String?
+  recordedById   String
+  recordedBy     User     @relation("RecordedByAdmin", fields: [recordedById], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([claimId])
+}
+
+model AuditLog {
+  id            String      @id @default(uuid())
+  claimId       String?
+  claim         Claim?      @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  action        AuditAction
+  fromStatus    ClaimStatus?
+  toStatus      ClaimStatus?
+  remarks       String?
+  metadata      Json?
+  performedById String
+  performedBy   User        @relation("PerformedByUser", fields: [performedById], references: [id])
+  performedAt   DateTime    @default(now())
+
+  @@index([claimId])
+  @@index([performedById])
+}

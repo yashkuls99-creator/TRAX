@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+npm-debug.log*
+.DS_Store
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/dist/
+.vscode/
+coverage/
+*.tsbuildinfo
