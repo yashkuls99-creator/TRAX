@@ -53,6 +53,10 @@ projectRouter.patch(
   asyncHandler(async (req, res) => {
     const project = await prisma.project.findUnique({ where: { id: req.params.id } });
     if (!project) throw ApiError.notFound("Project not found");
+    if (req.body.code && req.body.code !== project.code) {
+      const existing = await prisma.project.findUnique({ where: { code: req.body.code } });
+      if (existing) throw ApiError.conflict("A project with this code already exists");
+    }
     const updated = await prisma.project.update({ where: { id: req.params.id }, data: req.body });
     await logAudit({ action: "PROJECT_UPDATED", performedById: req.user!.sub, metadata: { projectId: updated.id, changes: req.body } });
     res.json(updated);

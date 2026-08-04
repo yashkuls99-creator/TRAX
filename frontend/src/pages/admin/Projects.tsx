@@ -143,7 +143,6 @@ function ProjectFormModal({
           <label className="label">Project Code</label>
           <input
             className="input"
-            disabled={!!project}
             value={form.code}
             onChange={(e) => setForm({ ...form, code: e.target.value })}
           />
