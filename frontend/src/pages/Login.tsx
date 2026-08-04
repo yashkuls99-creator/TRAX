@@ -69,10 +69,6 @@ export function LoginPage() {
             Sign in
           </button>
         </form>
-        <div className="mt-4 text-center text-xs text-ink-faint">
-          <p>Demo: admin@ngo.org / Admin@123 (Finance Admin)</p>
-          <p>Demo: employee@ngo.org / Employee@123 (Employee)</p>
-        </div>
       </div>
     </div>
   );
